@@ -1,0 +1,17 @@
+{
+
+  "manifest_version": 2,
+  "name": "Willmehrhaben",
+  "version": "1.1",
+
+  "description": "Adds information to housing ads on willhaben.at",
+
+  "content_scripts": [
+    {
+      "matches": ["*://www.willhaben.at/iad/*"],
+      "js": ["willmehrhaben.js"]
+    }
+  ]
+
+}
+
