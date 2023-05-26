@@ -2,9 +2,9 @@
 
   "manifest_version": 2,
   "name": "Willmehrhaben",
-  "version": "1.2",
+  "version": "1.2.1",
 
-  "description": "Adds information to housing ads on willhaben.at",
+  "description": "Adds publication date for adverts on willhaben.at"
 
   "content_scripts": [
     {
