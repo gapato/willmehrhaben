@@ -3,6 +3,13 @@ function isAdPage() {
     return { "result" : url.includes("/d/"), "url": url };
 }
 
+function checkUrlId(willhabenId) {
+    const url = window.location.toString();
+    const v = url.split("-");
+    const idFromUrl = v[v.length-1];
+    return idFromUrl == willhabenId;
+}
+
 function insertReloadButton(editDateTag) {
     const appendString = " | Veröffentlicht: ";
     const button = document.createElement("a");
@@ -13,7 +20,7 @@ function insertReloadButton(editDateTag) {
     button.style = "cursor:pointer;";
 
     editDateTag.textContent = editDateTag.textContent + appendString;
-    editDateTag.appendChild(button);
+    editDateTag.after(button);
 }
 
 function injectPublishedDate() {
@@ -39,17 +46,22 @@ function injectPublishedDate() {
         if (!pageProps["advertDetails"]) {
             console.warn("[willmehrhaben] could not find 'advertDetails' property");
             insertReloadButton(editDateTag);
+        } else {
+            if (checkUrlId(pageProps["advertDetails"]["id"])) {
+                const firstPublished = pageProps["advertDetails"]["firstPublishedDate"];
+                const formattedPublishedDate = firstPublished.slice(8,10) + "." + firstPublished.slice(5,7) + "." + firstPublished.slice(0,4) + ", " + firstPublished.slice(11,13) + ":" + firstPublished.slice(14,16) + " Uhr";
+                appendString = " | Veröffentlicht: " + formattedPublishedDate;
+            } else {
+                console.warn("[willmehrhaben] JSON data id does not match the id from the URL");
+                insertReloadButton(editDateTag);
+            }
         }
-
-        const firstPublished = pageProps["advertDetails"]["firstPublishedDate"];
-
-
-        const formattedPublishedDate = firstPublished.slice(8,10) + "." + firstPublished.slice(5,7) + "." + firstPublished.slice(0,4) + ", " + firstPublished.slice(11,13) + ":" + firstPublished.slice(14,16) + " Uhr";
-        appendString = " | Veröffentlicht: " + formattedPublishedDate;
     }
-    editDateTag.textContent = editDateTag.textContent + appendString;
 
-    console.debug("[willmehrhaben] done");
+    setTimeout(() => {
+        editDateTag.textContent = editDateTag.textContent + appendString;
+        console.debug("[willmehrhaben] done");
+    }, 1000);
 }
 
 const attrObserver = new MutationObserver((mutations) => {
@@ -61,7 +73,7 @@ const attrObserver = new MutationObserver((mutations) => {
         console.debug("not an ad page: " + iP["url"]);
         return; 
     }
-    console.debug("[willmehrhaben] on an ad page html class!");
+    console.debug("[willmehrhaben] on an ad page");
     if (mu.target.className == " ") {
         console.debug("[willmehrhaben] html has finished loading");
         injectPublishedDate()
