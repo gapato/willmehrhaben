@@ -6,10 +6,12 @@
 
   "description": "Adds publication date for adverts on willhaben.at",
 
+
   "content_scripts": [
     {
       "matches": ["*://www.willhaben.at/iad/*"],
-      "js": ["willmehrhaben.js"]
+      "js": ["willmehrhaben.js"],
+      "css": ["css/fix.css"]
     }
   ]
 
