@@ -138,7 +138,6 @@ function listPageInsertPubDate() {
 
 
                 const willhabenId = item["id"];
-                console.debug("[willmehrhaben] processing item " + willhabenId);
                 const itemATag = document.getElementById("search-result-entry-header-" + willhabenId);
 
                 if (itemATag === null) {
@@ -173,6 +172,45 @@ function listPageInsertPubDate() {
     }
 }
 
+function hideOldElements() {
+    document.getElementById("wmh_hide_button").remove();
+    const pageProps = getPageProps();
+
+    if (pageProps === null || typeof pageProps === 'undefined') {
+    } else {
+        const adList = pageProps["searchResult"]["advertSummaryList"]["advertSummary"];
+
+        adList.forEach((item) => {
+
+            const willhabenId = item["id"];
+            const itemATag = document.getElementById("search-result-entry-header-" + willhabenId);
+
+            if (itemATag === null) {
+                console.debug("[willmehrhaben] Failed to find item's a tag");
+                console.debug(document.getElementById(willhabenId));
+                return;
+            }
+
+            // remove bumped items
+            if (getAttribute(item, "IS_BUMPED") !== null) {
+                itemATag.parentNode.parentNode.remove();
+            }
+        });
+    }
+}
+
+function removeAds() {
+    let i = 1;
+    document.getElementById("apn-large-leaderboard").parentNode.parentNode.parentNode.remove();
+    while(true) {
+        const ad = document.getElementById("apn-large-result-list-" + i);
+        if (ad === null) return;
+        console.log(ad);
+        ad.remove();
+        i += 1;
+    }
+}
+
 function wrapperInsertPubDate(isAdPageResult) {
     if (isAdPageResult["single"]) {
         injectPublishedDate();
@@ -184,7 +222,7 @@ function wrapperInsertPubDate(isAdPageResult) {
 function injectButton() {
     const list = document.getElementById("skip-to-resultlist");
     if (list === null) return;
-    if (document.getElementById("wmh_list_button_placeholder") !== null) return;
+    if (document.getElementById("wmh_inject_button") !== null) return;
 
     const button = document.createElement("span");
     button.textContent = "Daten einfügen";
@@ -192,7 +230,27 @@ function injectButton() {
     button.className = "wmh_list_button";
 
     const buttonPlaceholder = document.createElement("div");
-    buttonPlaceholder.id = "wmh_list_button_placeholder";
+    buttonPlaceholder.className = "wmh_list_button_placeholder";
+    buttonPlaceholder.id = "wmh_inject_button";
+
+    buttonPlaceholder.append(button);
+
+    list.prepend(buttonPlaceholder);
+}
+
+function injectHideButton() {
+    const list = document.getElementById("skip-to-resultlist");
+    if (list === null) return;
+    if (document.getElementById("wmh_hide_button") !== null) return;
+
+    const button = document.createElement("span");
+    button.textContent = "Alte Anzeigen ausblenden";
+    button.addEventListener("click", hideOldElements);
+    button.className = "wmh_list_button";
+
+    const buttonPlaceholder = document.createElement("div");
+    buttonPlaceholder.className = "wmh_list_button_placeholder";
+    buttonPlaceholder.id = "wmh_hide_button";
 
     buttonPlaceholder.append(button);
 
@@ -232,3 +290,5 @@ if (isAdPageResult["result"] && isAdPageResult["installed"]) {
 }
 
 injectButton();
+injectHideButton();
+setTimeout(removeAds, 2000);
