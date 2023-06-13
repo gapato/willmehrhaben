@@ -1,6 +1,9 @@
 function isAdPage() {
     const url = window.location.toString();
-    return { "result" : url.includes("/d/"), "url": url };
+    const single = url.includes("/d/");
+    const list = (document.getElementById("skip-to-resultlist") !== null);
+    const dataInstalled = typeof document.documentElement["attributes"]["data-lt-installed"] !== 'undefined';
+    return { "single": single, "list": list, "url": url, "installed": dataInstalled, "result": single || list };
 }
 
 function checkUrlId(willhabenId) {
@@ -49,32 +52,44 @@ function insertReloadButton(str) {
     }
 }
 
-function injectPublishedDate() {
-    if (!((isAdPage())["result"])) {return;}
-
-    console.debug("[willmehrhaben] injecting date...");
-
+function getPageProps() {
     const dataTag = document.getElementById("__NEXT_DATA__");
-
-    let appendString = "";
 
     if (!dataTag) {
         console.warn("[willmehrhaben] could not find NEXT_DATA tag");
-        appendString = " ⚠ ";
+        return null;
     } else {
 
         const data = JSON.parse(dataTag.textContent);
 
         const pageProps = data["props"]["pageProps"]
 
+        return pageProps;
+    }
+}
+
+function reformatDate(dateString) {
+    return dateString.slice(8,10) + "." + dateString.slice(5,7) + "." + dateString.slice(0,4) + ", " + dateString.slice(11,13) + ":" + dateString.slice(14,16) + " Uhr";
+}
+
+function injectPublishedDate() {
+
+    console.debug("[willmehrhaben] injecting date...");
+
+    const pageProps = getPageProps();
+
+    let appendString = "";
+
+    if (pageProps === null || typeof pageProps === 'undefined') {
+        appendString = " ⚠ ";
+    } else {
         if (!pageProps["advertDetails"]) {
             console.warn("[willmehrhaben] could not find 'advertDetails' property");
             insertReloadButton();
         } else {
             if (checkUrlId(pageProps["advertDetails"]["id"])) {
                 const firstPublished = pageProps["advertDetails"]["firstPublishedDate"];
-                const formattedPublishedDate = firstPublished.slice(8,10) + "." + firstPublished.slice(5,7) + "." + firstPublished.slice(0,4) + ", " + firstPublished.slice(11,13) + ":" + firstPublished.slice(14,16) + " Uhr";
-                appendString = " | Veröffentlicht: " + formattedPublishedDate;
+                appendString = " | Veröffentlicht: " + reformatDate(firstPublished);
                 insertReloadButton(appendString);
             } else {
                 console.warn("[willmehrhaben] JSON data ID (" + pageProps["advertDetails"]["id"] + ") does not match the id from the URL");
@@ -84,26 +99,136 @@ function injectPublishedDate() {
     }
 
     console.debug("[willmehrhaben] done");
+
+    if (pageProps === null || typeof pageProps === 'undefined') {
+    }
+}
+
+function getAttribute(item, attributeName) {
+    for (let i = 0; i < item["attributes"]["attribute"].length; i++) {
+        const attr = item["attributes"]["attribute"][i];
+        if (attr["name"] === attributeName) {
+            let result;
+            if (attr["values"].length == 1) {
+                result = attr["values"][0];
+            } else {
+                result =  attr["values"];
+            }
+            return result;
+        }
+    }
+    return null;
+}
+
+function listPageInsertPubDate() {
+    console.debug("[willmehrhaben] injecting dates in list items...");
+
+    const pageProps = getPageProps();
+
+    if (pageProps === null || typeof pageProps === 'undefined') {
+    } else {
+        const htmlTag = document.documentElement;
+        const scrollY = window.scrollY;
+        htmlTag.scroll({"left":0, "top":2*htmlTag.getClientRects()[0]["height"], "behavior": "smooth"});
+
+        const adList = pageProps["searchResult"]["advertSummaryList"]["advertSummary"];
+
+        setTimeout(() => {
+            adList.forEach((item) => {
+
+
+                const willhabenId = item["id"];
+                console.debug("[willmehrhaben] processing item " + willhabenId);
+                const itemATag = document.getElementById("search-result-entry-header-" + willhabenId);
+
+                if (itemATag === null) {
+                    console.debug("[willmehrhaben] Failed to find item's a tag");
+                    console.debug(document.getElementById(willhabenId));
+                    return;
+                }
+
+                // clear existing items
+                dateTags = itemATag.getElementsByClassName("wmh_list_item_date");
+                for (let i = 0; i < dateTags.length; i++) {
+                    dateTags.item(i).remove();
+                }
+
+                const dateDiv = document.createElement("div");
+                dateDiv.className = "wmh_list_item_date";
+                dateDiv.textContent = "Geändert: " + reformatDate(getAttribute(item, "PUBLISHED_String"));
+
+                itemATag.appendChild(dateDiv);
+
+                // tag bumped items
+                const h3Tag = itemATag.getElementsByTagName("h3")[0];
+                if (getAttribute(item, "IS_BUMPED") !== null) {
+                    h3Tag.style.color = "#aaa";
+                } else {
+                    h3Tag.style.fontWeight = "bold";
+                }
+            });
+
+            htmlTag.scroll(0, scrollY);
+        }, 1000);
+    }
+}
+
+function wrapperInsertPubDate(isAdPageResult) {
+    if (isAdPageResult["single"]) {
+        injectPublishedDate();
+    } else if (isAdPageResult["list"]) {
+        listPageInsertPubDate();
+    }
+}
+
+function injectButton() {
+    const list = document.getElementById("skip-to-resultlist");
+    if (list === null) return;
+    if (document.getElementById("wmh_list_button_placeholder") !== null) return;
+
+    const button = document.createElement("span");
+    button.textContent = "Daten einfügen";
+    button.addEventListener("click", listPageInsertPubDate);
+    button.className = "wmh_list_button";
+
+    const buttonPlaceholder = document.createElement("div");
+    buttonPlaceholder.id = "wmh_list_button_placeholder";
+
+    buttonPlaceholder.append(button);
+
+    list.prepend(buttonPlaceholder);
 }
 
 const attrObserver = new MutationObserver((mutations) => {
   mutations.forEach(mu => {
     if (mu.type !== "attributes" && !(mu.attributeName === "class" && mu.attributeName === "data-lt-installed")) return;
     console.debug ("[willmehrhaben] mutation of html tag");
-    const iP = isAdPage();
-    if (!iP["result"]) {
-        console.debug("not an ad page: " + iP["url"]);
+    const isAdPageResult = isAdPage();
+    if (!isAdPageResult["result"]) {
+        console.debug("not an ad page: " + isAdPageResult["url"]);
         return;
     }
     console.debug("[willmehrhaben] on an ad page");
-    if ((mu.attributeName === "class" && mu.target.className === " ") || (mu.attributeName === "data-lt-installed" && mu.target.attributes["data-lt-installed"].value === "true")) {
-        console.debug("[willmehrhaben] html has finished loading (" + mu.attributeName + ")");
-        injectPublishedDate()
-    } else {
-        console.debug("[willmehrhaben] html is still loading");
-    };
+    setTimeout( () => {
+        if ((mu.attributeName === "class" && mu.target.className === " ") || (mu.attributeName === "data-lt-installed" && mu.target.attributes["data-lt-installed"].value === "true")) {
+            console.debug("[willmehrhaben] html has finished loading (" + mu.attributeName + ")");
+            wrapperInsertPubDate(isAdPageResult);
+        } else {
+            console.debug("[willmehrhaben] html is still loading");
+        };
+    }, 500);
   });
 });
 
 const htmlTag = document.documentElement;
 attrObserver.observe(htmlTag, {attributes: true});
+
+const isAdPageResult = isAdPage();
+if (isAdPageResult["result"] && isAdPageResult["installed"]) {
+    console.debug("[willmehrhaben] data already installed, injecting date");
+    setTimeout(() => wrapperInsertPubDate(isAdPageResult), 1000);
+} else {
+    console.debug("[willmehrhaben] not an ad page or data not installed");
+}
+
+injectButton();
