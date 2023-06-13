@@ -1,3 +1,22 @@
+let showOld = true;
+
+let NEXT_DATA = null;
+
+const hide_old_text = "Alte Anzeigen ausblenden";
+const show_old_text = "Alte Anzeigen einblenden";
+
+function checkRealEstate() {
+    // checking the URL is not enough (search agents)
+
+    const pageProps = getPageProps();
+
+    const details = pageProps["advertDetails"] || pageProps["searchResult"];
+
+    if (typeof details === "undefined") return false;
+
+    return details["breadcrumbs"][1]["displayName"] === "Immobilien";
+}
+
 function isAdPage() {
     const url = window.location.toString();
     const single = url.includes("/d/");
@@ -53,6 +72,8 @@ function insertReloadButton(str) {
 }
 
 function getPageProps() {
+    if (NEXT_DATA !== null) return NEXT_DATA;
+
     const dataTag = document.getElementById("__NEXT_DATA__");
 
     if (!dataTag) {
@@ -63,6 +84,8 @@ function getPageProps() {
         const data = JSON.parse(dataTag.textContent);
 
         const pageProps = data["props"]["pageProps"]
+
+        NEXT_DATA = pageProps;
 
         return pageProps;
     }
@@ -142,7 +165,6 @@ function listPageInsertPubDate() {
 
                 if (itemATag === null) {
                     console.debug("[willmehrhaben] Failed to find item's a tag");
-                    console.debug(document.getElementById(willhabenId));
                     return;
                 }
 
@@ -172,8 +194,18 @@ function listPageInsertPubDate() {
     }
 }
 
-function hideOldElements() {
-    document.getElementById("wmh_hide_button").remove();
+function toggleOldElements() {
+
+    showOld = !showOld;
+
+    const button = document.getElementById("wmh_toggle_old_button");
+
+    if (showOld) {
+        button.textContent = hide_old_text;
+    } else {
+        button.textContent = show_old_text;
+    }
+
     const pageProps = getPageProps();
 
     if (pageProps === null || typeof pageProps === 'undefined') {
@@ -187,26 +219,29 @@ function hideOldElements() {
 
             if (itemATag === null) {
                 console.debug("[willmehrhaben] Failed to find item's a tag");
-                console.debug(document.getElementById(willhabenId));
                 return;
             }
 
             // remove bumped items
             if (getAttribute(item, "IS_BUMPED") !== null) {
-                itemATag.parentNode.parentNode.remove();
+                if (showOld) {
+                    itemATag.parentNode.parentNode.classList.remove("wmh_hidden");
+                } else {
+                    itemATag.parentNode.parentNode.classList.add("wmh_hidden");
+                }
             }
         });
     }
+
 }
 
 function removeAds() {
     let i = 1;
-    document.getElementById("apn-large-leaderboard").parentNode.parentNode.parentNode.remove();
+    document.getElementById("apn-large-leaderboard").parentNode.parentNode.parentNode.classList.add("wmh_hidden");
     while(true) {
         const ad = document.getElementById("apn-large-result-list-" + i);
         if (ad === null) return;
-        console.log(ad);
-        ad.remove();
+        ad.classList.add("wmh_hidden");
         i += 1;
     }
 }
@@ -238,15 +273,16 @@ function injectButton() {
     list.prepend(buttonPlaceholder);
 }
 
-function injectHideButton() {
+function injectToggleOldButton() {
     const list = document.getElementById("skip-to-resultlist");
     if (list === null) return;
     if (document.getElementById("wmh_hide_button") !== null) return;
 
     const button = document.createElement("span");
-    button.textContent = "Alte Anzeigen ausblenden";
-    button.addEventListener("click", hideOldElements);
+    button.textContent = hide_old_text;
+    button.addEventListener("click", toggleOldElements);
     button.className = "wmh_list_button";
+    button.id = "wmh_toggle_old_button";
 
     const buttonPlaceholder = document.createElement("div");
     buttonPlaceholder.className = "wmh_list_button_placeholder";
@@ -278,17 +314,19 @@ const attrObserver = new MutationObserver((mutations) => {
   });
 });
 
-const htmlTag = document.documentElement;
-attrObserver.observe(htmlTag, {attributes: true});
+if (checkRealEstate()) {
+    const htmlTag = document.documentElement;
+    attrObserver.observe(htmlTag, {attributes: true});
 
-const isAdPageResult = isAdPage();
-if (isAdPageResult["result"] && isAdPageResult["installed"]) {
-    console.debug("[willmehrhaben] data already installed, injecting date");
-    setTimeout(() => wrapperInsertPubDate(isAdPageResult), 1000);
-} else {
-    console.debug("[willmehrhaben] not an ad page or data not installed");
+    const isAdPageResult = isAdPage();
+    if (isAdPageResult["result"] && isAdPageResult["installed"]) {
+        console.debug("[willmehrhaben] data already installed, injecting date");
+        setTimeout(() => wrapperInsertPubDate(isAdPageResult), 1000);
+    } else {
+        console.debug("[willmehrhaben] not an ad page or data not installed");
+    }
+
+    injectButton();
+    injectToggleOldButton();
+    setTimeout(removeAds, 2000);
 }
-
-injectButton();
-injectHideButton();
-setTimeout(removeAds, 2000);
