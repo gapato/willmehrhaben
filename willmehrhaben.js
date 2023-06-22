@@ -1,9 +1,13 @@
 let showOld = true;
+let showPro = true;
 
 let NEXT_DATA = null;
 
 const hide_old_text = "Alte Anzeigen ausblenden";
 const show_old_text = "Alte Anzeigen einblenden";
+
+const hide_pro_text = "Anzeigen von Händler ausblenden";
+const show_pro_text = "Anzeigen von Händler einblenden";
 
 function tryRemove(id) {
     const elem = document.getElementById(id);
@@ -241,21 +245,69 @@ function listPageInsertPubDate() {
 
                 itemATag.appendChild(dateDiv);
 
-                // tag bumped items
                 const h3Tag = itemATag.getElementsByTagName("h3")[0];
+                const adFrame = h3Tag.parentNode.parentNode.parentNode;
+
+                // tag bumped items
                 if (getAttribute(item, "IS_BUMPED") !== null) {
-                    h3Tag.style.color = "#aaa";
+                    h3Tag. style.color = "#aaa";
                 } else {
                     h3Tag.style.fontWeight = "bold";
+                }
+
+                if (getAttribute(item, "ISPRIVATE") === "0") {
+                    adFrame.style.backgroundColor = "";
+                } else {
+                    console.log("got private ad");
+                    adFrame.style.backgroundColor = "#ffffd3";
                 }
             });
 
             injectToggleOldButton();
+            injectToggleProButton();
             document.getElementById("wmh_inject_button").remove();
 
         }, 1000);
         setTimeout(() => htmlTag.scroll(0, scrollY), 1000);
     })
+}
+
+function toggleProElements() {
+
+    showPro = !showPro;
+
+    const button = document.getElementById("wmh_toggle_pro_button");
+
+    if (showPro) {
+        button.textContent = hide_pro_text;
+    } else {
+        button.textContent = show_pro_text;
+    }
+
+    getPageProps().then((pageProps) => {
+
+        const adList = pageProps["searchResult"]["advertSummaryList"]["advertSummary"];
+
+        adList.forEach((item) => {
+
+            const willhabenId = item["id"];
+            const itemATag = document.getElementById("search-result-entry-header-" + willhabenId);
+
+            if (itemATag === null) {
+                console.debug("[willmehrhaben] Failed to find item's a tag");
+                return;
+            }
+
+            // remove bumped items
+            if (getAttribute(item, "ISPRIVATE") === "0") {
+                if (showPro) {
+                    itemATag.parentNode.parentNode.classList.remove("wmh_hidden");
+                } else {
+                    itemATag.parentNode.parentNode.classList.add("wmh_hidden");
+                }
+            }
+        });
+    });
 }
 
 function toggleOldElements() {
@@ -321,6 +373,26 @@ function injectButton() {
     const buttonPlaceholder = document.createElement("div");
     buttonPlaceholder.className = "wmh_list_button_placeholder";
     buttonPlaceholder.id = "wmh_inject_button";
+
+    buttonPlaceholder.append(button);
+
+    list.prepend(buttonPlaceholder);
+}
+
+function injectToggleProButton() {
+    const list = document.getElementById("skip-to-resultlist");
+    if (list === null) return;
+    if (document.getElementById("wmh_hidepro_button") !== null) return;
+
+    const button = document.createElement("span");
+    button.textContent = hide_pro_text;
+    button.addEventListener("click", toggleProElements);
+    button.className = "wmh_list_button";
+    button.id = "wmh_toggle_pro_button";
+
+    const buttonPlaceholder = document.createElement("div");
+    buttonPlaceholder.className = "wmh_list_button_placeholder";
+    buttonPlaceholder.id = "wmh_hidepro_button";
 
     buttonPlaceholder.append(button);
 
